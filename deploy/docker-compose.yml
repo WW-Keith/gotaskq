@@ -1,0 +1,28 @@
+services:
+
+  postgres:
+    image: postgres:18.4
+    environment:
+      POSTGRES_USER: gotaskq
+      POSTGRES_PASSWORD: wk98
+      POSTGRES_DB: gotaskq
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "gotaskq"]
+      interval: 5s
+      retries: 5
+
+  migrate:
+    image: ghcr.io/pressly/goose:latest
+    command: postgres "${DB_URL}" up
+    environment:
+      GOOSE_DIR: /migrations
+      DB_URL: postgres://gotaskq:gotaskq@postgres/gotaskq?sslmode=disable
+    volumes:
+      - ./db:/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
