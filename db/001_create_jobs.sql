@@ -17,7 +17,7 @@ CREATE TABLE jobs (
     updated_at TIMESTAMPZ NOT NULL DEFAULT NOW()
 );
 
---Partial index for dequeue query
+-- Partial index for dequeue query
 -- Only indexes rows wher status = 'pending' - completed jobs
 -- fall out of the index automatically keeping it small and fast
 CREATE INDEX idx_jobs_dequeue
