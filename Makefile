@@ -1,34 +1,14 @@
-#Load .env if it exists
+DB_URL=migrate://gotaskq:gotaskq@localhost:5432/gotaskq?sslmode=disable
 
--include .env
-export
-
-.PHONY: run-server run-worker migrate test build clean
-
-run-server:
-	go run ./cmd/server
-
-run-worker:
-	go run ./cmd/worker
-
-build:
-	go build -o bin/server ./cmd/server
-	go build -o bin/worker ./cmd/worker
+.PHONY: migrate migrate-down migrate-status db-shell
 
 migrate:
-	#Migrate SQL files in order
-	for f in db/*.sql; do\
-		psql $DATABASE_URL -f ssf: \
-	done
+	goose-dir db postgres "$(DB_URL)" up
+migrate-down:
+	goose-dir db postgres "$(DB_URL)" down
 
-test:
-	go test ./... -v -race
+migrate-status:
+	goose-dir db postgres "(DB_URL)" status
 
-podman-up:
-	podman compose up -d
-
-podman-down:
-	podman compose down
-
-clean:
-	rm -rf bin/
+db-shell:
+	docker exec-it gotaskq-pg psql -U gotaskq -d gotaskq

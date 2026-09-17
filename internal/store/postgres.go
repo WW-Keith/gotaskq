@@ -13,7 +13,7 @@ type PostgresStore struct {
 	db *sql.DB
 }
 
-var _Store = (*PostgresStore)(nil)
+//var _Store = (*PostgresStore)(nil)
 
 // NewPostgresStore opens a connection pool and verifies it with a ping
 func NewPostgresStore(dsn string) (*PostgresStore, error) {
@@ -42,6 +42,6 @@ func (s *PostgresStore) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 
-//func (s *PostgresStore) Enqueue(ctx context.Context, job interface{}) error {
-//	return fmt.Errorf("not implemented")
-//}
+func (s *PostgresStore) Enqueue(ctx context.Context, job interface{}) error {
+	return fmt.Errorf("not implemented")
+}
