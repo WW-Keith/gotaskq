@@ -10,11 +10,11 @@ CREATE TABLE jobs (
     attempts INTEGER NOT NULL DEFAULT 0,
     max_retry INTEGER NOT NULL DEFAULT 3,
     error TEXT,
-    run_at TIMESTAMPZ,
-    started_at TIMESTAMPZ,
-    done_at TIMESTAMPZ,
-    created_at TIMESTAMPZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPZ NOT NULL DEFAULT NOW()
+    run_at TIMESTAMPTZ,
+    started_at TIMESTAMPTZ,
+    done_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Partial index for dequeue query

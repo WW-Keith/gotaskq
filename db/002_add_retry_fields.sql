@@ -2,20 +2,19 @@
 
 -- retry_at when a failed job should next be attempted
 -- NULL means run immedietely
+-- dlq_reason: explains why job was sent to dead letter queue
+-- dlq_at: timestamp when job was moved to DLQ
 ALTER TABLE jobs
-    ADD COLUMN retry_at TIMESTAMPZ,
+    ADD COLUMN retry_at TIMESTAMPTZ,
     ADD COLUMN dlq_reason TEXT,
-    ADD COLUMN dlq_at TIMESTAMPZ;
+    ADD COLUMN dlq_at TIMESTAMPTZ;
 
--- Rebuild the dequeue index to exclude jobs whose retry_at is still in future
-DROP INDEX idx_jobs_dequeue;
+    -- NOTE: We intentionally do not modify idx_jobs_dequeue here
+    -- Partial indexes practices must be Immutable meaning NOW() cannot be used
+    -- dynamically in the Dequeue SQL query instead
 
-CREATE INDEX idx_jobs_dequeue
-    ON jobs (priority ASC, created_at ASC),
-    WHERE status = 'pending',
-    AND (retry_at IS NULL OR retry_at <= Now());
+--  +goose Down
 
--- +goose Down
 ALTER TABLE jobs
     DROP COLUMN IF EXISTS retry_at,
     DROP COLUMN IF EXISTS dlq_reason,
