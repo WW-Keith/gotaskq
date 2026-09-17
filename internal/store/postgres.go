@@ -13,7 +13,7 @@ type PostgresStore struct {
 	db *sql.DB
 }
 
-//var _Store = (*PostgresStore)(nil)
+var _Store = (*PostgresStore)(nil)
 
 // NewPostgresStore opens a connection pool and verifies it with a ping
 func NewPostgresStore(dsn string) (*PostgresStore, error) {
