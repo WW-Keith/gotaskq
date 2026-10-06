@@ -7,6 +7,14 @@ import (
 	"github.com/WW-Keith/gotaskq/internal/model"
 )
 
+//Sentimental error checks against these with errors.Is().
+//never by comparing error strings
+
+var (
+	ErrNotFound = errors.New("job not found")
+	ErrorCannotCancel = errors.New("job cannot be cancelled in its current state")
+)
+
 //Store is the persistence interface. The rest of the codebase depends on this interface.
 //This makes testing straight forwar - swap in a fake, no DB needed
 
@@ -39,9 +47,3 @@ type Store interface {
 	Ping(ctx context.Context) error
 }
 
-//Sentimental error checks against these with errors.Is().
-//never by comparing error strings
-var (
-	ErrNotFound = errors.New("job not found")
-	ErrorCannotCancel = errors.New("job cannot be cancelled in its current state")
-)

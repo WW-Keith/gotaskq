@@ -14,7 +14,7 @@ func testDSn() string {
 	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
 		return dsn
 	}
-	return "postgres://gotaskq:gotaskq@localhost:5432/gotaskq?sslmode=disable"
+	return "postgres://gotaskq:gotaskq@127.0.0.1:5432/gotaskq?sslmode=disable"
 }
 
 func TestSchema_JobTableExists(t *testing.T){

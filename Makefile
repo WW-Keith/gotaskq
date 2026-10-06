@@ -1,4 +1,4 @@
-DB_URL=postgres://gotaskq:gotaskq@localhost:5432/gotaskq?sslmode=disable
+DB_URL=postgres://gotaskq:gotaskq@127.0.0.1:5432/gotaskq?sslmode=disable
 
 .PHONY: migrate migrate-down migrate-status db-shell
 

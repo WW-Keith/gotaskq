@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -38,12 +39,14 @@ type Job struct {
 	Queue     string          `json:"queue"` // "default", "critical", "low"
 	Attempts  int             `json:"attempts"`
 	MaxRetry  int             `json:"max_retry"`
-	Error     string          `json:"error,omitempty"`
+	Error     sql.NullString  `json:"error"`
 	CreatedAt time.Time       `json:"created_at"`
 	UpdatedAt time.Time       `json:"updated_at"`
 	RunAt     *time.Time      `json:"run_at,omitempty"` // nil = run immediately
+	RetryAt   *time.Time      `json:"retry_at,omitempty"`
 	StartedAt *time.Time      `json:"started_at,omitempty"`
 	DoneAt    *time.Time      `json:"done_at,omitempty"`
+
 }
 
 // Valid returns an error description if the job is missing required fields
