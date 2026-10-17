@@ -1,13 +1,14 @@
-services:
+version: '3.9'
 
+services:
   postgres:
-    image: postgres:18.4
+    image: docker.io/library/postgres:16-alpine
     environment:
-      POSTGRES_USER: gotaskq
-      POSTGRES_PASSWORD: wk98
-      POSTGRES_DB: gotaskq
+      POSTGRES_USER:     gotaskq
+      POSTGRES_PASSWORD: gotaskq
+      POSTGRES_DB:       gotaskq
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -15,14 +16,92 @@ services:
       interval: 5s
       retries: 5
 
+  redis:
+    image: docker.io/library/redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
   migrate:
-    image: ghcr.io/pressly/goose:latest
-    command: postgres "${DB_URL}" up
-    environment:
-      GOOSE_DIR: /migrations
-      DB_URL: postgres://gotaskq:gotaskq@postgres/gotaskq?sslmode=disable
+    build:
+      context: ..
+      dockerfile: Dockerfile.migrate
+    command: ["-dir", "/migrations", "postgres", "postgres://gotaskq:gotaskq@postgres/gotaskq?sslmode=disable", "up"]
     volumes:
-      - ./db:/migrations
+      - ../db:/migrations
     depends_on:
       postgres:
         condition: service_healthy
+
+  server:
+    build:
+      context: ..
+      dockerfile: Dockerfile.server
+    environment:
+      DATABASE_URL: "postgres://gotaskq:gotaskq@postgres/gotaskq?sslmode=disable"
+      REDIS_URL:    redis:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile.worker
+    environment:
+      DATABASE_URL: "postgres://gotaskq:gotaskq@postgres/gotaskq?sslmode=disable"
+      REDIS_URL:    redis:6379
+      QUEUE:        default
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: Dockerfile.scheduler
+    environment:
+      DATABASE_URL: "******postgres/gotaskq?sslmode=disable"
+      REDIS_URL:    redis:6379
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  prometheus:
+    image: docker.io/prom/prometheus:v2.48.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    ports:
+      - "9090:9090"
+    depends_on:
+      - server
+
+  grafana:
+    image: docker.io/grafana/grafana:10.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: gotaskq
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:

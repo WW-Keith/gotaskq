@@ -9,22 +9,22 @@ import (
 	"github.com/WW-Keith/gotaskq/internal/model"
 )
 
-//helper: enqueue a job and return it - reduces test boilerplate
-func mustEnqueue(t *testing.T, s *PostgresStore, jobType string) *model.Job{
+// helper: enqueue a job and return it - reduces test boilerplate
+func mustEnqueue(t *testing.T, s *PostgresStore, jobType string) *model.Job {
 	t.Helper()
 	job := &model.Job{
-		Type: jobType,
+		Type:    jobType,
 		Payload: json.RawMessage(`{"test":true}`),
-		Queue: "default",
+		Queue:   "default",
 	}
-	if err := s.Enqueue(context.Background(), job); err != nil{
+	if err := s.Enqueue(context.Background(), job); err != nil {
 		t.Fatalf("must enqueue: %v", err)
 	}
-	t.Cleanup(func() {cleanJob(t, s.db, job.ID)})
+	t.Cleanup(func() { cleanJob(t, s.db, job.ID) })
 	return job
 }
 
-func TestDequeue_ClaimsJob(t *testing.T){
+func TestDequeue_ClaimsJob(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
@@ -37,10 +37,10 @@ func TestDequeue_ClaimsJob(t *testing.T){
 	if claimed == nil {
 		t.Fatalf("Dequeue() returned nil - expected a job")
 	}
-	if claimed.ID != original.ID{
+	if claimed.ID != original.ID {
 		t.Errorf("got job %q, want %q", claimed.ID, original.ID)
 	}
-	if claimed.Status != model.StatusRunning{
+	if claimed.Status != model.StatusRunning {
 		t.Errorf("status got %q, want %q", claimed.Status, model.StatusRunning)
 	}
 	if claimed.Attempts != 1 {
@@ -51,7 +51,7 @@ func TestDequeue_ClaimsJob(t *testing.T){
 	}
 }
 
-func TestDeque_EmptyQueue(t *testing.T){
+func TestDeque_EmptyQueue(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
@@ -65,20 +65,20 @@ func TestDeque_EmptyQueue(t *testing.T){
 	}
 }
 
-func TestDequeue_RespectsQueue(t *testing.T){
+func TestDequeue_RespectsQueue(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
 	// Enqueue into critical - should not be dequeued from default
 	criticalJob := &model.Job{
-		Type: "payment",
+		Type:    "payment",
 		Payload: json.RawMessage(`{}`),
-		Queue: "critical",
+		Queue:   "critical",
 	}
-	if err := s.Enqueue(ctx, criticalJob); err != nil{
+	if err := s.Enqueue(ctx, criticalJob); err != nil {
 		t.Fatalf("enqueue: %v", err)
 	}
-	t.Cleanup(func() {cleanJob(t, s.db, criticalJob.ID)})
+	t.Cleanup(func() { cleanJob(t, s.db, criticalJob.ID) })
 
 	// Dequeue from default should get nothing
 	job, err := s.Dequeue(ctx, "default")
@@ -90,7 +90,7 @@ func TestDequeue_RespectsQueue(t *testing.T){
 	}
 }
 
-func TestDequeue_SkipLocked(t *testing.T){
+func TestDequeue_SkipLocked(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
@@ -100,7 +100,7 @@ func TestDequeue_SkipLocked(t *testing.T){
 
 	// Dequeue both - each call should return a different job
 	claimed1, err := s.Dequeue(ctx, "default")
-	if err != nil && claimed1 == nil {
+	if err != nil || claimed1 == nil {
 		t.Fatalf("first dequeue failed: %v", err)
 	}
 	claimed2, err := s.Dequeue(ctx, "default")
@@ -112,44 +112,44 @@ func TestDequeue_SkipLocked(t *testing.T){
 	}
 
 	// Both original IDs should be claimed
-	claimedIDs := map[string]bool{claimed1.ID:true, claimed2.ID:true}
-	if !claimedIDs[job1.ID] ||  !claimedIDs[job2.ID] {
+	claimedIDs := map[string]bool{claimed1.ID: true, claimed2.ID: true}
+	if !claimedIDs[job1.ID] || !claimedIDs[job2.ID] {
 		t.Errorf("unexpectedIDs: got %v, want %v and %v", claimedIDs, job1.ID, job2.ID)
 	}
 }
 
-func TestDequeue_ConcurrentWorkers(t *testing.T){
+func TestDequeue_ConcurrentWorkers(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
-	
+
 	const numJobs = 10
 
 	// Enqueue 10 jobs
 	for i := 0; i < numJobs; i++ {
 		job := mustEnqueue(t, s, "concurrent_task")
-		_= job
+		_ = job
 	}
 
 	// 5 goroutines all dequeue simultaneously
 	var (
-		mu sync.Mutex
-		claimed[]string
-		wg sync.WaitGroup
+		mu      sync.Mutex
+		claimed []string
+		wg      sync.WaitGroup
 	)
 
-	for i := 0; i<5; i++{
+	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		go func ()  {
+		go func() {
 			defer wg.Done()
 			job, err := s.Dequeue(ctx, "default")
-			if err != nil{
+			if err != nil {
 				t.Errorf("concurrent Dequeue() error: %v", err)
 				return
 			}
 			if job != nil {
 				mu.Lock()
 				claimed = append(claimed, job.ID)
-				mu.Lock()
+				mu.Unlock()
 			}
 		}()
 	}
@@ -166,14 +166,17 @@ func TestDequeue_ConcurrentWorkers(t *testing.T){
 	t.Logf("5 concurrent workers claimed %d unique jobs", len(claimed))
 }
 
-func TestAck_MarksSucceeded(t *testing.T){
+func TestAck_MarksSucceeded(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
 	job := mustEnqueue(t, s, "send_email")
 
 	// Must dequeue first only running jobs can be acked
-	claimed, _ := s.Dequeue(ctx, "default")
+	claimed, err := s.Dequeue(ctx, "default")
+	if err != nil {
+		t.Fatalf("Dequeue() error: %v", err)
+	}
 	if claimed == nil {
 		t.Fatal("nothing to ack")
 	}
@@ -188,7 +191,7 @@ func TestAck_MarksSucceeded(t *testing.T){
 		t.Fatalf("GetByID() failed: %v", err)
 	}
 
-	if updated.Status != model.StatusSucceeded{
+	if updated.Status != model.StatusSucceeded {
 		t.Errorf("status: got %q want %q", updated.Status, model.StatusSucceeded)
 	}
 
@@ -197,12 +200,15 @@ func TestAck_MarksSucceeded(t *testing.T){
 	}
 }
 
-func TestNack_MarksFailed(t *testing.T){
+func TestNack_MarksFailed(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	mustEnqueue(t, s, "broken_task")
-	claimed, _:= s.Dequeue(ctx, "defaulf")
+	job := mustEnqueue(t, s, "broken_task")
+	claimed, err := s.Dequeue(ctx, "default")
+	if err != nil {
+		t.Fatalf("Dequeue() error: %v", err)
+	}
 	if claimed == nil {
 		t.Fatal("nothing to nack")
 	}
@@ -211,12 +217,12 @@ func TestNack_MarksFailed(t *testing.T){
 		t.Fatalf("Nack() failed: %v", err)
 	}
 
-	updated, err := s.GetByID(ctx, claimed.ID)
+	updated, err := s.GetByID(ctx, job.ID)
 	if err != nil {
 		t.Fatalf("GetByID() failed: %v", err)
 	}
 
-	if updated.Status != model.StatusFailed{
+	if updated.Status != model.StatusFailed {
 		t.Errorf("status: got %q, want %q", updated.Status, model.StatusFailed)
 	}
 
@@ -225,7 +231,7 @@ func TestNack_MarksFailed(t *testing.T){
 	}
 }
 
-func TestGetByID_NotFound(t *testing.T){
+func TestGetByID_NotFound(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
@@ -233,4 +239,47 @@ func TestGetByID_NotFound(t *testing.T){
 	if err != ErrNotFound {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
+}
+
+func TestDequeue_PriorityOrder(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Enqueue a low-priority job first
+	low := &model.Job{
+		Type:     "report",
+		Payload:  json.RawMessage(`{}`),
+		Queue:    "default",
+		Priority: model.PriorityLow,
+	}
+	if err := s.Enqueue(ctx, low); err != nil {
+		t.Fatalf("enqueue low: %v", err)
+	}
+	t.Cleanup(func() { cleanJob(t, s.db, low.ID) })
+
+	// Enqueue a critical-priority job second
+	crit := &model.Job{
+		Type:     "payment",
+		Payload:  json.RawMessage(`{}`),
+		Queue:    "default",
+		Priority: model.PriorityCritical,
+	}
+	if err := s.Enqueue(ctx, crit); err != nil {
+		t.Fatalf("enqueue critical: %v", err)
+	}
+	t.Cleanup(func() { cleanJob(t, s.db, crit.ID) })
+
+	// Dequeue should return the critical job first
+	// (lower Priority int = higher urgency, ORDER BY priority ASC)
+	claimed, err := s.Dequeue(ctx, "default")
+	if err != nil || claimed == nil {
+		t.Fatalf("dequeue: %v", err)
+	}
+
+	if claimed.ID != crit.ID {
+		t.Errorf("expected critical job first, got type=%q priority=%d",
+			claimed.Type, claimed.Priority)
+	}
+	t.Logf("correctly dequeued %q (priority=%d) before %q (priority=%d)",
+		claimed.Type, claimed.Priority, low.Type, low.Priority)
 }
