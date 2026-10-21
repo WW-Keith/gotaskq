@@ -3,4 +3,5 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@v3.24.3
 
 FROM scratch
 COPY --from=builder /go/bin/goose /goose
+COPY db /migrations
 ENTRYPOINT ["/goose"]

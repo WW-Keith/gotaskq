@@ -56,7 +56,8 @@ cd gotaskq
 make up
 ```
 
-This starts PostgreSQL, runs migrations, and launches the API server + worker.
+This starts PostgreSQL, runs migrations, and launches the API server, worker,
+scheduler, Prometheus, and Grafana.
 
 **Verify:**
 
@@ -64,6 +65,12 @@ This starts PostgreSQL, runs migrations, and launches the API server + worker.
 curl http://localhost:8080/health
 # {"status":"ok"}
 ```
+
+**Monitoring:** Open [Grafana](http://localhost:3000) and sign in with
+`admin` / `gotaskq`. The provisioned **GoTaskQ / GoTaskQ Overview** dashboard
+shows queue depth, active workers, enqueue and completion rates, job duration,
+retries, and dead-letter rates. Prometheus is available at
+[localhost:9090](http://localhost:9090).
 
 ---
 
@@ -167,6 +174,48 @@ make db-shell
 make down
 ```
 
+### Kubernetes
+
+`deploy/k8s` contains a single-node PostgreSQL and Redis setup, the GoTaskQ
+server/worker/scheduler, Prometheus scraping, and an HPA for the default queue.
+The HPA uses the Prometheus Adapter to expose `gotaskq_queue_depth` through the
+Kubernetes external metrics API.
+
+Build the four images and make them available to your Kubernetes cluster
+(for a local cluster, load these tags into its image cache):
+
+```bash
+docker build -f Dockerfile.server -t gotaskq-server:latest .
+docker build -f Dockerfile.worker -t gotaskq-worker:latest .
+docker build -f Dockerfile.scheduler -t gotaskq-scheduler:latest .
+docker build -f Dockerfile.migrate -t gotaskq-migrate:latest .
+```
+
+Before deploying, replace the sample database password and matching
+`DATABASE_URL` in `deploy/k8s/core.yaml`. The example Secret is for local
+development only; use your cluster's secret manager for real deployments.
+
+```bash
+kubectl apply -k deploy/k8s
+kubectl wait -n gotaskq --for=condition=complete job/gotaskq-migrate --timeout=180s
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm upgrade --install prometheus-adapter prometheus-community/prometheus-adapter \
+  --namespace gotaskq \
+  -f deploy/k8s/prometheus-adapter-values.yaml
+kubectl wait --for=condition=Available \
+  apiservice/v1beta1.external.metrics.k8s.io --timeout=120s
+kubectl apply -f deploy/k8s/hpa.yaml
+```
+
+The HPA targets an average of five pending default-queue jobs per worker, with
+1–20 replicas. Check scaling with `kubectl -n gotaskq get hpa worker`; the API
+is available inside the cluster at `http://server:8080`, or locally with
+`kubectl -n gotaskq port-forward svc/server 8080:8080`.
+For later schema changes, delete the completed `gotaskq-migrate` Job before
+reapplying the manifests so Kubernetes creates a fresh migration Job.
+
 **Environment variables:**
 
 | Variable | Default | Description |
@@ -201,7 +250,7 @@ gotaskq/
 │   ├── observe/      # Prometheus instruments
 │   └── worker/       # Job execution and graceful shutdown
 ├── db/               # SQL migration files (goose)
-└── deploy/           # Docker Compose, Kubernetes manifests
+└── deploy/           # Docker Compose, Grafana, and Kubernetes manifests
 ```
 
 ---
@@ -231,8 +280,8 @@ This project was built as a deep-dive into how production task queues work. Each
 - [x] Priority queues: critical / default / low (v0.2)
 - [x] Delayed and recurring cron schedules
 - [x] Prometheus metrics endpoint and worker metrics (v0.3)
-- [ ] Grafana dashboard (v0.3)
-- [ ] Kubernetes deployment + HPA on queue depth (v0.4)
+- [x] Grafana dashboard (v0.3)
+- [x] Kubernetes deployment + HPA on queue depth (v0.4)
 
 ---
 

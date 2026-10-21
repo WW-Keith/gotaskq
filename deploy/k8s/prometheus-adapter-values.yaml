@@ -1,0 +1,12 @@
+prometheus:
+  url: http://prometheus.gotaskq.svc
+  port: 9090
+
+rules:
+  default: false
+  external:
+    - seriesQuery: '{__name__="gotaskq_queue_depth",queue!=""}'
+      name:
+        matches: "^gotaskq_queue_depth$"
+        as: gotaskq_queue_depth
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>}) by (queue)'
