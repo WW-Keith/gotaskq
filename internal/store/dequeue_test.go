@@ -180,6 +180,9 @@ func TestAck_MarksSucceeded(t *testing.T) {
 	if claimed == nil {
 		t.Fatal("nothing to ack")
 	}
+	if claimed.ID != job.ID {
+		t.Fatalf("dequeued job %q, want %q", claimed.ID, job.ID)
+	}
 
 	if err := s.Ack(ctx, claimed.ID); err != nil {
 		t.Fatalf("Ack() failed: %v", err)
@@ -190,7 +193,6 @@ func TestAck_MarksSucceeded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByID() failed: %v", err)
 	}
-
 	if updated.Status != model.StatusSucceeded {
 		t.Errorf("status: got %q want %q", updated.Status, model.StatusSucceeded)
 	}
@@ -212,6 +214,9 @@ func TestNack_MarksFailed(t *testing.T) {
 	if claimed == nil {
 		t.Fatal("nothing to nack")
 	}
+	if claimed.ID != job.ID {
+		t.Fatalf("dequeued job %q, want %q", claimed.ID, job.ID)
+	}
 
 	if err := s.Nack(ctx, claimed.ID, "connection refused"); err != nil {
 		t.Fatalf("Nack() failed: %v", err)
@@ -221,7 +226,6 @@ func TestNack_MarksFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByID() failed: %v", err)
 	}
-
 	if updated.Status != model.StatusFailed {
 		t.Errorf("status: got %q, want %q", updated.Status, model.StatusFailed)
 	}

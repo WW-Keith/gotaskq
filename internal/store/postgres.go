@@ -402,6 +402,7 @@ func (s *PostgresStore) GetByID(ctx context.Context, id string) (*model.Job, err
 		&job.MaxRetry,
 		&job.Error,
 		&job.RunAt,
+		&job.RetryAt,
 		&job.StartedAt,
 		&job.DoneAt,
 		&job.CreatedAt,
@@ -409,6 +410,9 @@ func (s *PostgresStore) GetByID(ctx context.Context, id string) (*model.Job, err
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get job by ID: %w", err)
 	}
 	return job, nil
 }
